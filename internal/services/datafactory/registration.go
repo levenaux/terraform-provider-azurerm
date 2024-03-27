@@ -46,7 +46,8 @@ func (Registration) Resources() []sdk.Resource {
 // SupportedDataSources returns the supported Data Sources supported by this Service
 func (r Registration) SupportedDataSources() map[string]*pluginsdk.Resource {
 	return map[string]*pluginsdk.Resource{
-		"azurerm_data_factory": dataSourceDataFactory(),
+		"azurerm_data_factory":                                 dataSourceDataFactory(),
+		"azurerm_data_factory_integration_runtime_self_hosted": dataSourceDataFactoryIntegrationRuntimeSelfHosted(),
 	}
 }
 
