@@ -364,9 +364,7 @@ The following arguments are supported:
 
 -> **NOTE:** The `admin_enabled` should be `true` in order to associate the Container Registry to this Machine Learning Workspace.
 
-* `public_access_behind_virtual_network_enabled` - (Optional) Enable public access when this Machine Learning Workspace is behind a VNet. Changing this forces a new resource to be created.
-
-* `public_network_access_enabled` - (Optional) Enable public access when this Machine Learning Workspace is behind VNet.
+* `public_network_access_enabled` - (Optional) Enable public access when this Machine Learning Workspace is behind VNet. Defaults to `true`.
 
 ~> **NOTE:** `public_access_behind_virtual_network_enabled` is deprecated and will be removed in favour of the property `public_network_access_enabled`.
 
@@ -389,6 +387,8 @@ The following arguments are supported:
 * `v1_legacy_mode_enabled` - (Optional) Enable V1 API features, enabling `v1_legacy_mode` may prevent you from using features provided by the v2 API. Defaults to `false`.
 
 * `sku_name` - (Optional) SKU/edition of the Machine Learning Workspace, possible values are `Free`, `Basic`, `Standard` and `Premium`. Defaults to `Basic`.
+
+* `serverless_compute` - (Optional) A `serverless_compute` block as defined below.
 
 * `tags` - (Optional) A mapping of tags to assign to the resource.
 
@@ -419,6 +419,16 @@ An `encryption` block supports the following:
 An `managed_network` block supports the following:
 
 * `isolation_mode` - (Optional) The isolation mode of the Machine Learning Workspace. Possible values are `Disabled`, `AllowOnlyApprovedOutbound`, and `AllowInternetOutbound`
+
+---
+
+A `serverless_compute` block supports the following:
+
+* `subnet_id` - (Optional) The ID of an existing Virtual Network Subnet in which the serverless compute nodes should be deployed to.
+
+* `public_ip_enabled` - (Optional) Should serverless compute nodes deployed in a custom Virtual Network have public IP addresses enabled for a workspace with private endpoint? Defaults to `false`.
+
+~> **Note:** `public_ip_enabled` cannot be updated from `true` to `false` when `subnet_id` is not set. `public_ip_enabled` must be set to `true` if `subnet_id` is not set and when `public_network_access_enabled` is `false`.
 
 ---
 

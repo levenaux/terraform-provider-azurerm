@@ -263,39 +263,6 @@ func TestAccKustoCluster_vnet(t *testing.T) {
 	})
 }
 
-func TestAccKustoCluster_languageExtensions(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_kusto_cluster", "test")
-	r := KustoClusterResource{}
-
-	data.ResourceTest(t, r, []acceptance.TestStep{
-		{
-			Config: r.languageExtensions(data),
-			Check: acceptance.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("language_extensions.#").HasValue("2"),
-			),
-		},
-		data.ImportStep(),
-		{
-			Config: r.languageExtensionsUpdate(data),
-			Check: acceptance.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("language_extensions.#").HasValue("2"),
-				check.That(data.ResourceName).Key("language_extensions.1").HasValue("R"),
-			),
-		},
-		{
-			Config: r.languageExtensionsRemove(data),
-			Check: acceptance.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("language_extensions.#").HasValue("1"),
-				check.That(data.ResourceName).Key("language_extensions.0").HasValue("R"),
-			),
-		},
-		data.ImportStep(),
-	})
-}
-
 func TestAccKustoCluster_optimizedAutoScale(t *testing.T) {
 	data := acceptance.BuildTestData(t, "azurerm_kusto_cluster", "test")
 	r := KustoClusterResource{}
@@ -380,7 +347,7 @@ func TestAccKustoCluster_trustedExternalTenants(t *testing.T) {
 		},
 		data.ImportStep(),
 		{
-			Config: r.trustedExternalTenants(data, "[]"),
+			Config: r.unsetTrustedExternalTenants(data),
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 			),
@@ -515,6 +482,35 @@ resource "azurerm_kusto_cluster" "test" {
   trusted_external_tenants = %s
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomString, tenantConfig)
+}
+
+func (KustoClusterResource) unsetTrustedExternalTenants(data acceptance.TestData) string {
+	return fmt.Sprintf(`
+provider "azurerm" {
+  features {}
+}
+
+data "azurerm_client_config" "current" {
+}
+
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_kusto_cluster" "test" {
+  name                = "acctestkc%s"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+
+  sku {
+    name     = "Dev(No SLA)_Standard_D11_v2"
+    capacity = 1
+  }
+
+  trusted_external_tenants = []
+}
+`, data.RandomInteger, data.Locations.Primary, data.RandomString)
 }
 
 func (KustoClusterResource) doubleEncryption(data acceptance.TestData) string {
@@ -776,84 +772,6 @@ resource "azurerm_kusto_cluster" "test" {
 `, data.RandomInteger, data.Locations.Primary, data.RandomString, data.RandomString)
 }
 
-func (KustoClusterResource) languageExtensions(data acceptance.TestData) string {
-	return fmt.Sprintf(`
-provider "azurerm" {
-  features {}
-}
-
-resource "azurerm_resource_group" "test" {
-  name     = "acctestRG-%d"
-  location = "%s"
-}
-
-resource "azurerm_kusto_cluster" "test" {
-  name                = "acctestkc%s"
-  location            = azurerm_resource_group.test.location
-  resource_group_name = azurerm_resource_group.test.name
-
-  sku {
-    name     = "Standard_E4d_v4"
-    capacity = 2
-  }
-
-  language_extensions = ["PYTHON", "R"]
-}
-`, data.RandomInteger, data.Locations.Primary, data.RandomString)
-}
-
-func (KustoClusterResource) languageExtensionsUpdate(data acceptance.TestData) string {
-	return fmt.Sprintf(`
-provider "azurerm" {
-  features {}
-}
-
-resource "azurerm_resource_group" "test" {
-  name     = "acctestRG-%d"
-  location = "%s"
-}
-
-resource "azurerm_kusto_cluster" "test" {
-  name                = "acctestkc%s"
-  location            = azurerm_resource_group.test.location
-  resource_group_name = azurerm_resource_group.test.name
-
-  sku {
-    name     = "Standard_E4d_v4"
-    capacity = 2
-  }
-
-  language_extensions = ["PYTHON_3.10.8", "R"]
-}
-`, data.RandomInteger, data.Locations.Primary, data.RandomString)
-}
-
-func (KustoClusterResource) languageExtensionsRemove(data acceptance.TestData) string {
-	return fmt.Sprintf(`
-provider "azurerm" {
-  features {}
-}
-
-resource "azurerm_resource_group" "test" {
-  name     = "acctestRG-%d"
-  location = "%s"
-}
-
-resource "azurerm_kusto_cluster" "test" {
-  name                = "acctestkc%s"
-  location            = azurerm_resource_group.test.location
-  resource_group_name = azurerm_resource_group.test.name
-
-  sku {
-    name     = "Standard_E4d_v4"
-    capacity = 2
-  }
-
-  language_extensions = ["R"]
-}
-`, data.RandomInteger, data.Locations.Primary, data.RandomString)
-}
-
 func (KustoClusterResource) noOptimizedAutoScale(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
@@ -901,7 +819,7 @@ resource "azurerm_kusto_cluster" "test" {
 
   optimized_auto_scale {
     minimum_instances = 2
-    maximum_instances = 2
+    maximum_instances = 3
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomString)

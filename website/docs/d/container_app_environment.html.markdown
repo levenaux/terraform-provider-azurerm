@@ -38,6 +38,8 @@ In addition to the Arguments listed above - the following Attributes are exporte
 
 ~> **NOTE:** This will only be populated for Environments that have `internal_load_balancer_enabled` set to true.
 
+* `custom_domain_verification_id` - The ID of the Custom Domain Verification for this Container App Environment.
+
 * `default_domain` - The default publicly resolvable name of this Container App Environment. This is generated at creation time to be globally unique.
 
 * `docker_bridge_cidr` - The network addressing in which the Container Apps in this Container App Environment will reside in CIDR notation.
@@ -50,6 +52,8 @@ In addition to the Arguments listed above - the following Attributes are exporte
 
 * `log_analytics_workspace_name` - The name of the Log Analytics Workspace this Container Apps Managed Environment is linked to.
 
+~> **NOTE:** This will only be populated for Environments that have `logs_destination` set to `log-analytics` and the Log Analytics Workspace is in the same subscription as the Environment.
+
 * `platform_reserved_cidr` - The IP range, in CIDR notation, that is reserved for environment infrastructure IP addresses.
 
 ~> **NOTE:** This will only be populated for Environments that have `internal_load_balancer_enabled` set to true.
@@ -60,7 +64,7 @@ In addition to the Arguments listed above - the following Attributes are exporte
 
 * `static_ip_address` - The Static IP address of the Environment.
 
-~> **NOTE:** If `internal_load_balancer_enabled` is true, this will be a Private IP in the subnet, otherwise this will be allocated a Public IPv4 address. 
+~> **NOTE:** If `internal_load_balancer_enabled` is true, this will be a Private IP in the subnet, otherwise this will be allocated a Public IPv4 address.
 
 * `tags` - A mapping of tags assigned to the resource.
 

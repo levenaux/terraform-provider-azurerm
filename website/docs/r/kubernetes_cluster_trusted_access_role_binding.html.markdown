@@ -6,13 +6,7 @@ description: |-
   Manages a Kubernetes Cluster Trusted Access Role Binding.
 ---
 
-<!-- Note: This documentation is generated. Any manual changes will be overwritten -->
-
 # azurerm_kubernetes_cluster_trusted_access_role_binding
-
-Manages a Kubernetes Cluster Trusted Access Role Binding
-~> **Note:** This Resource is in **Preview** to use this you must be opted into the Preview. You can do this by running `az feature register --namespace Microsoft.ContainerService --name TrustedAccessPreview` and then `az provider register -n Microsoft.ContainerService`
-.
 
 ## Example Usage
 
@@ -47,9 +41,9 @@ resource "azurerm_kubernetes_cluster" "example" {
     name       = "example-value"
     node_count = "example-value"
     vm_size    = "example-value"
-  }
-  upgrade_settings {
-    max_surge = "example-value"
+    upgrade_settings {
+      max_surge = "example-value"
+    }
   }
   identity {
     type = "example-value"

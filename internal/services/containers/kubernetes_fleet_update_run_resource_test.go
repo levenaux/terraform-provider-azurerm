@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-azure-helpers/lang/pointer"
-	"github.com/hashicorp/go-azure-sdk/resource-manager/containerservice/2023-10-15/updateruns"
+	"github.com/hashicorp/go-azure-sdk/resource-manager/containerservice/2024-04-01/updateruns"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/acceptance"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/acceptance/check"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/clients"
@@ -91,6 +91,7 @@ func TestAccKubernetesFleetUpdateRun_update(t *testing.T) {
 		data.ImportStep(),
 	})
 }
+
 func (r KubernetesFleetUpdateRunTestResource) Exists(ctx context.Context, clients *clients.Client, state *pluginsdk.InstanceState) (*bool, error) {
 	id, err := updateruns.ParseUpdateRunID(state.ID)
 	if err != nil {
@@ -104,6 +105,7 @@ func (r KubernetesFleetUpdateRunTestResource) Exists(ctx context.Context, client
 
 	return pointer.To(resp.Model != nil), nil
 }
+
 func (r KubernetesFleetUpdateRunTestResource) basic(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 %s
@@ -203,6 +205,9 @@ resource "azurerm_kubernetes_cluster" "test" {
     name       = "default"
     node_count = 1
     vm_size    = "Standard_DS2_v2"
+    upgrade_settings {
+      max_surge = "10%%"
+    }
   }
 
   identity {

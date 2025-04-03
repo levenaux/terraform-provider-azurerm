@@ -51,7 +51,7 @@ The following arguments are supported:
 
 * `auto_learn_private_ranges_enabled` - (Optional) Whether enable auto learn private ip range.
 
-* `sku` - (Optional) The SKU Tier of the Firewall Policy. Possible values are `Standard`, `Premium` and `Basic`. Changing this forces a new Firewall Policy to be created.
+* `sku` - (Optional) The SKU Tier of the Firewall Policy. Possible values are `Standard`, `Premium` and `Basic`. Defaults to `Standard`. Changing this forces a new Firewall Policy to be created.
 
 * `tags` - (Optional) A mapping of tags which should be assigned to the Firewall Policy.
 
@@ -133,7 +133,7 @@ A `threat_intelligence_allowlist` block supports the following:
 
 A `tls_certificate` block supports the following:
 
-* `key_vault_secret_id` - (Required) The ID of the Key Vault, where the secret or certificate is stored.
+* `key_vault_secret_id` - (Required) The Secret Identifier (URI) of the certificate stored in Azure Key Vault, either as a secret or certificate.
 
 * `name` - (Required) The name of the certificate.
 

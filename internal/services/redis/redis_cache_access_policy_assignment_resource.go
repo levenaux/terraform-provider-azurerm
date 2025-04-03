@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package redis
 
 import (
@@ -6,14 +9,14 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-azure-helpers/lang/response"
-	"github.com/hashicorp/go-azure-sdk/resource-manager/redis/2023-08-01/redis"
+	"github.com/hashicorp/go-azure-sdk/resource-manager/redis/2024-11-01/redis"
+	"github.com/hashicorp/terraform-provider-azurerm/internal/locks"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/sdk"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/validation"
 )
 
-type RedisCacheAccessPolicyAssignmentResource struct {
-}
+type RedisCacheAccessPolicyAssignmentResource struct{}
 
 var _ sdk.Resource = RedisCacheAccessPolicyAssignmentResource{}
 
@@ -108,6 +111,10 @@ func (r RedisCacheAccessPolicyAssignmentResource) Create() sdk.ResourceFunc {
 					ObjectIdAlias:    model.ObjectIDAlias,
 				},
 			}
+
+			locks.ByID(model.RedisCacheID)
+			defer locks.UnlockByID(model.RedisCacheID)
+
 			if err := client.AccessPolicyAssignmentCreateUpdateThenPoll(ctx, id, createInput); err != nil {
 				return fmt.Errorf("failed to create Redis Cache Access Policy Assignment %s in Redis Cache %s in resource group %s: %s", model.Name, redisId.RedisName, redisId.ResourceGroupName, err)
 			}
@@ -170,7 +177,10 @@ func (r RedisCacheAccessPolicyAssignmentResource) Delete() sdk.ResourceFunc {
 				return err
 			}
 
-			if _, err := client.AccessPolicyAssignmentDelete(ctx, *id); err != nil {
+			locks.ByID(model.RedisCacheID)
+			defer locks.UnlockByID(model.RedisCacheID)
+
+			if err := client.AccessPolicyAssignmentDeleteThenPoll(ctx, *id); err != nil {
 				return fmt.Errorf("deleting Redis Cache Access Policy Assignment %s in Redis Cache %s in resource group %s: %s", id.AccessPolicyAssignmentName, id.RedisName, id.ResourceGroupName, err)
 			}
 

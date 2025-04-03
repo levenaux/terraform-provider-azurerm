@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-provider-azurerm/internal/acceptance"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/acceptance/check"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/clients"
+	"github.com/hashicorp/terraform-provider-azurerm/internal/features"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/services/monitor"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
 	"github.com/hashicorp/terraform-provider-azurerm/utils"
@@ -28,7 +29,6 @@ func TestAccMonitorDiagnosticSetting_eventhub(t *testing.T) {
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("eventhub_name").Exists(),
 				check.That(data.ResourceName).Key("eventhub_authorization_rule_id").Exists(),
-				check.That(data.ResourceName).Key("log.#").HasValue("2"),
 				check.That(data.ResourceName).Key("metric.#").HasValue("1"),
 			),
 		},
@@ -46,7 +46,7 @@ func TestAccMonitorDiagnosticSetting_CategoryGroup(t *testing.T) {
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("eventhub_name").Exists(),
 				check.That(data.ResourceName).Key("eventhub_authorization_rule_id").Exists(),
-				check.That(data.ResourceName).Key("log.#").HasValue("2"),
+				check.That(data.ResourceName).Key("enabled_log.#").HasValue("1"),
 				check.That(data.ResourceName).Key("metric.#").HasValue("1"),
 			),
 		},
@@ -82,7 +82,6 @@ func TestAccMonitorDiagnosticSetting_logAnalyticsWorkspace(t *testing.T) {
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("log_analytics_workspace_id").Exists(),
-				check.That(data.ResourceName).Key("log.#").HasValue("2"),
 				check.That(data.ResourceName).Key("metric.#").HasValue("1"),
 			),
 		},
@@ -115,7 +114,6 @@ func TestAccMonitorDiagnosticSetting_partnerSolution(t *testing.T) {
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("partner_solution_id").Exists(),
-				check.That(data.ResourceName).Key("log.#").HasValue("2"),
 				check.That(data.ResourceName).Key("metric.#").HasValue("1"),
 			),
 		},
@@ -133,7 +131,6 @@ func TestAccMonitorDiagnosticSetting_storageAccount(t *testing.T) {
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("storage_account_id").Exists(),
-				check.That(data.ResourceName).Key("log.#").HasValue("2"),
 				check.That(data.ResourceName).Key("metric.#").HasValue("1"),
 			),
 		},
@@ -184,6 +181,14 @@ func TestAccMonitorDiagnosticSetting_enabledLogsMix(t *testing.T) {
 	r := MonitorDiagnosticSettingResource{}
 	data.ResourceTest(t, r, []acceptance.TestStep{
 		{
+			Config: r.eventhub(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+				check.That(data.ResourceName).Key("enabled_log.#").HasValue("0"),
+			),
+		},
+		data.ImportStep(),
+		{
 			Config: r.enabledLogs(data),
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
@@ -212,6 +217,14 @@ func TestAccMonitorDiagnosticSetting_enabledLogsMix(t *testing.T) {
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("enabled_log.#").HasValue("2"),
+			),
+		},
+		data.ImportStep(),
+		{
+			Config: r.eventhub(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+				check.That(data.ResourceName).Key("enabled_log.#").HasValue("0"),
 			),
 		},
 		data.ImportStep(),
@@ -294,7 +307,8 @@ func (t MonitorDiagnosticSettingResource) Exists(ctx context.Context, clients *c
 }
 
 func (MonitorDiagnosticSettingResource) eventhub(data acceptance.TestData) string {
-	return fmt.Sprintf(`
+	if !features.FivePointOh() {
+		return fmt.Sprintf(`
 provider "azurerm" {
   features {}
 }
@@ -315,11 +329,10 @@ resource "azurerm_eventhub_namespace" "test" {
 }
 
 resource "azurerm_eventhub" "test" {
-  name                = "acctest-EH-%[1]d"
-  namespace_name      = azurerm_eventhub_namespace.test.name
-  resource_group_name = azurerm_resource_group.test.name
-  partition_count     = 2
-  message_retention   = 1
+  name              = "acctest-EH-%[1]d"
+  namespace_id      = azurerm_eventhub_namespace.test.id
+  partition_count   = 2
+  message_retention = 1
 }
 
 resource "azurerm_eventhub_namespace_authorization_rule" "test" {
@@ -356,6 +369,63 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
+	}
+	return fmt.Sprintf(`
+provider "azurerm" {
+  features {}
+}
+
+data "azurerm_client_config" "current" {
+}
+
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%[1]d"
+  location = "%[2]s"
+}
+
+resource "azurerm_eventhub_namespace" "test" {
+  name                = "acctest-EHN-%[1]d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  sku                 = "Basic"
+}
+
+resource "azurerm_eventhub" "test" {
+  name              = "acctest-EH-%[1]d"
+  namespace_id      = azurerm_eventhub_namespace.test.id
+  partition_count   = 2
+  message_retention = 1
+}
+
+resource "azurerm_eventhub_namespace_authorization_rule" "test" {
+  name                = "example"
+  namespace_name      = azurerm_eventhub_namespace.test.name
+  resource_group_name = azurerm_resource_group.test.name
+  listen              = true
+  send                = true
+  manage              = true
+}
+
+resource "azurerm_key_vault" "test" {
+  name                = "acctest%[3]d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  sku_name            = "standard"
+}
+
+resource "azurerm_monitor_diagnostic_setting" "test" {
+  name                           = "acctest-DS-%[1]d"
+  target_resource_id             = azurerm_key_vault.test.id
+  eventhub_authorization_rule_id = azurerm_eventhub_namespace_authorization_rule.test.id
+  eventhub_name                  = azurerm_eventhub.test.name
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
+}
+`, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
 }
 
 func (MonitorDiagnosticSettingResource) categoryGroup(data acceptance.TestData) string {
@@ -380,11 +450,10 @@ resource "azurerm_eventhub_namespace" "test" {
 }
 
 resource "azurerm_eventhub" "test" {
-  name                = "acctest-EH-%[1]d"
-  namespace_name      = azurerm_eventhub_namespace.test.name
-  resource_group_name = azurerm_resource_group.test.name
-  partition_count     = 2
-  message_retention   = 1
+  name              = "acctest-EH-%[1]d"
+  namespace_id      = azurerm_eventhub_namespace.test.id
+  partition_count   = 2
+  message_retention = 1
 }
 
 resource "azurerm_eventhub_namespace_authorization_rule" "test" {
@@ -421,11 +490,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
 
   metric {
     category = "AllMetrics"
-
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -443,11 +507,6 @@ resource "azurerm_monitor_diagnostic_setting" "import" {
 
   metric {
     category = "AllMetrics"
-
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, r.eventhub(data))
@@ -490,11 +549,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
 
   metric {
     category = "AllMetrics"
-
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -625,10 +679,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
 
   metric {
     category = "AllMetrics"
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary)
@@ -671,11 +721,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
 
   metric {
     category = "AllMetrics"
-
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -718,11 +763,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
 
   metric {
     category = "AllMetrics"
-
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -818,11 +858,10 @@ resource "azurerm_eventhub_namespace" "test" {
 }
 
 resource "azurerm_eventhub" "test" {
-  name                = "acctest-EH-%[1]d"
-  namespace_name      = azurerm_eventhub_namespace.test.name
-  resource_group_name = azurerm_resource_group.test.name
-  partition_count     = 2
-  message_retention   = 1
+  name              = "acctest-EH-%[1]d"
+  namespace_id      = azurerm_eventhub_namespace.test.id
+  partition_count   = 2
+  message_retention = 1
 }
 
 resource "azurerm_eventhub_namespace_authorization_rule" "test" {
@@ -869,11 +908,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
   metric {
     category = "AllMetrics"
     enabled  = true
-
-    retention_policy {
-      enabled = false
-      days    = 7
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -901,11 +935,10 @@ resource "azurerm_eventhub_namespace" "test" {
 }
 
 resource "azurerm_eventhub" "test" {
-  name                = "acctest-EH-%[1]d"
-  namespace_name      = azurerm_eventhub_namespace.test.name
-  resource_group_name = azurerm_resource_group.test.name
-  partition_count     = 2
-  message_retention   = 1
+  name              = "acctest-EH-%[1]d"
+  namespace_id      = azurerm_eventhub_namespace.test.id
+  partition_count   = 2
+  message_retention = 1
 }
 
 resource "azurerm_eventhub_namespace_authorization_rule" "test" {
@@ -943,11 +976,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
   metric {
     category = "AllMetrics"
     enabled  = true
-
-    retention_policy {
-      enabled = false
-      days    = 7
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -975,11 +1003,10 @@ resource "azurerm_eventhub_namespace" "test" {
 }
 
 resource "azurerm_eventhub" "test" {
-  name                = "acctest-EH-%[1]d"
-  namespace_name      = azurerm_eventhub_namespace.test.name
-  resource_group_name = azurerm_resource_group.test.name
-  partition_count     = 2
-  message_retention   = 1
+  name              = "acctest-EH-%[1]d"
+  namespace_id      = azurerm_eventhub_namespace.test.id
+  partition_count   = 2
+  message_retention = 1
 }
 
 resource "azurerm_eventhub_namespace_authorization_rule" "test" {
@@ -1026,11 +1053,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
   metric {
     category = "AllMetrics"
     enabled  = true
-
-    retention_policy {
-      enabled = false
-      days    = 7
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -1058,11 +1080,10 @@ resource "azurerm_eventhub_namespace" "test" {
 }
 
 resource "azurerm_eventhub" "test" {
-  name                = "acctest-EH-%[1]d"
-  namespace_name      = azurerm_eventhub_namespace.test.name
-  resource_group_name = azurerm_resource_group.test.name
-  partition_count     = 2
-  message_retention   = 1
+  name              = "acctest-EH-%[1]d"
+  namespace_id      = azurerm_eventhub_namespace.test.id
+  partition_count   = 2
+  message_retention = 1
 }
 
 resource "azurerm_eventhub_namespace_authorization_rule" "test" {
@@ -1100,11 +1121,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
   metric {
     category = "AllMetrics"
     enabled  = true
-
-    retention_policy {
-      enabled = false
-      days    = 7
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomIntOfLength(17))
@@ -1234,10 +1250,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
   metric {
     category = "AllMetrics"
     enabled  = false
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary)
@@ -1369,10 +1381,6 @@ resource "azurerm_monitor_diagnostic_setting" "test" {
   metric {
     category = "AllMetrics"
     enabled  = false
-    retention_policy {
-      days    = 0
-      enabled = false
-    }
   }
 }
 `, data.RandomInteger, data.Locations.Primary)

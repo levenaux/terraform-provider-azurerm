@@ -20,10 +20,10 @@ import (
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/validation"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/timeouts"
-	"github.com/tombuildsstuff/giovanni/storage/2023-11-03/blob/accounts"
-	"github.com/tombuildsstuff/giovanni/storage/2023-11-03/datalakestore/filesystems"
-	"github.com/tombuildsstuff/giovanni/storage/2023-11-03/datalakestore/paths"
-	"github.com/tombuildsstuff/giovanni/storage/accesscontrol"
+	"github.com/jackofallops/giovanni/storage/2023-11-03/blob/accounts"
+	"github.com/jackofallops/giovanni/storage/2023-11-03/datalakestore/filesystems"
+	"github.com/jackofallops/giovanni/storage/2023-11-03/datalakestore/paths"
+	"github.com/jackofallops/giovanni/storage/accesscontrol"
 )
 
 func resourceStorageDataLakeGen2FileSystem() *pluginsdk.Resource {
@@ -39,6 +39,8 @@ func resourceStorageDataLakeGen2FileSystem() *pluginsdk.Resource {
 		}, func(ctx context.Context, d *pluginsdk.ResourceData, meta interface{}) ([]*pluginsdk.ResourceData, error) {
 			storageClient := meta.(*clients.Client).Storage
 			subscriptionId := meta.(*clients.Client).Account.SubscriptionId
+			ctx, cancel := context.WithTimeout(ctx, d.Timeout(pluginsdk.TimeoutRead))
+			defer cancel()
 
 			id, err := filesystems.ParseFileSystemID(d.Id(), storageClient.StorageDomainSuffix)
 			if err != nil {
@@ -82,6 +84,14 @@ func resourceStorageDataLakeGen2FileSystem() *pluginsdk.Resource {
 			},
 
 			"properties": MetaDataSchema(),
+
+			"default_encryption_scope": {
+				Type:         pluginsdk.TypeString,
+				Optional:     true,
+				Computed:     true, // needed because a dummy value is returned when unspecified
+				ForceNew:     true,
+				ValidateFunc: validate.StorageEncryptionScopeName,
+			},
 
 			"owner": {
 				Type:         pluginsdk.TypeString,
@@ -207,6 +217,10 @@ func resourceStorageDataLakeGen2FileSystemCreate(d *pluginsdk.ResourceData, meta
 	input := filesystems.CreateInput{
 		Properties: properties,
 	}
+	if encryptionScope := d.Get("default_encryption_scope"); encryptionScope.(string) != "" {
+		input.DefaultEncryptionScope = encryptionScope.(string)
+	}
+
 	if _, err = dataPlaneFilesystemsClient.Create(ctx, id.FileSystemName, input); err != nil {
 		return fmt.Errorf("creating %s: %v", id, err)
 	}
@@ -368,6 +382,7 @@ func resourceStorageDataLakeGen2FileSystemRead(d *pluginsdk.ResourceData, meta i
 	}
 
 	d.Set("name", id.FileSystemName)
+	d.Set("default_encryption_scope", resp.DefaultEncryptionScope)
 
 	if err = d.Set("properties", resp.Properties); err != nil {
 		return fmt.Errorf("setting `properties`: %v", err)

@@ -152,6 +152,41 @@ func TestAccContainerGroup_multipleAssignedIdentities(t *testing.T) {
 	})
 }
 
+func TestAccContainerGroup_AssignedIdentityUpdate(t *testing.T) {
+	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
+	r := ContainerGroupResource{}
+
+	data.ResourceTest(t, r, []acceptance.TestStep{
+		{
+			Config: r.SystemAssignedIdentity(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+				check.That(data.ResourceName).Key("identity.0.type").HasValue("SystemAssigned"),
+				check.That(data.ResourceName).Key("identity.0.identity_ids.#").HasValue("0"),
+				check.That(data.ResourceName).Key("identity.0.principal_id").IsUUID(),
+			),
+		},
+		{
+			Config: r.UserAssignedIdentity(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+				check.That(data.ResourceName).Key("identity.0.type").HasValue("UserAssigned"),
+				check.That(data.ResourceName).Key("identity.0.identity_ids.#").HasValue("1"),
+				check.That(data.ResourceName).Key("identity.0.principal_id").HasValue(""),
+			),
+		},
+		{
+			Config: r.MultipleAssignedIdentities(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+				check.That(data.ResourceName).Key("identity.0.type").HasValue("SystemAssigned, UserAssigned"),
+				check.That(data.ResourceName).Key("identity.0.identity_ids.#").HasValue("1"),
+				check.That(data.ResourceName).Key("identity.0.principal_id").IsUUID(),
+			),
+		},
+	})
+}
+
 func TestAccContainerGroup_imageRegistryCredentials(t *testing.T) {
 	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
 	r := ContainerGroupResource{}
@@ -230,6 +265,26 @@ func TestAccContainerGroup_logTypeUnset(t *testing.T) {
 	})
 }
 
+func TestAccContainerGroup_AssignedIdentityUpdateWithLogWorkspace(t *testing.T) {
+	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
+	r := ContainerGroupResource{}
+
+	data.ResourceTest(t, r, []acceptance.TestStep{
+		{
+			Config: r.SystemAssignedIdentityWithLogWorkspace(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+			),
+		},
+		{
+			Config: r.UserAssignedIdentityWithLogWorkspace(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+			),
+		},
+	})
+}
+
 func TestAccContainerGroup_linuxBasic(t *testing.T) {
 	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
 	r := ContainerGroupResource{}
@@ -290,47 +345,17 @@ func TestAccContainerGroup_requiresImport(t *testing.T) {
 	})
 }
 
-func TestAccContainerGroup_linuxBasicUpdate(t *testing.T) {
+func TestAccContainerGroup_linuxBasicMultipleContainers(t *testing.T) {
 	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
 	r := ContainerGroupResource{}
 
 	data.ResourceTest(t, r, []acceptance.TestStep{
 		{
-			Config: r.linuxBasic(data),
-			Check: acceptance.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("container.#").HasValue("1"),
-			),
-		},
-		{
-			Config: r.linuxBasicUpdated(data),
+			Config: r.linuxBasicMultipleContainers(data),
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("container.#").HasValue("2"),
 				check.That(data.ResourceName).Key("container.0.ports.#").HasValue("2"),
-			),
-		},
-	})
-}
-
-func TestAccContainerGroup_exposedPortUpdate(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
-	r := ContainerGroupResource{}
-
-	data.ResourceTest(t, r, []acceptance.TestStep{
-		{
-			Config: r.exposedPort(data),
-			Check: acceptance.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("exposed_port.#").HasValue("1"),
-			),
-		},
-		{
-			Config: r.exposedPortUpdated(data),
-			Check: acceptance.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("container.0.ports.#").HasValue("2"),
-				check.That(data.ResourceName).Key("exposed_port.#").HasValue("2"),
 			),
 		},
 	})
@@ -356,80 +381,6 @@ func TestAccContainerGroup_linuxBasicTagsUpdate(t *testing.T) {
 				check.That(data.ResourceName).Key("tags.OS").HasValue("Linux"),
 			),
 		},
-	})
-}
-
-func TestAccContainerGroup_linuxComplete(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
-
-	// Override locations for this test to location that has GPU SKU support:
-	// https://learn.microsoft.com/en-us/azure/container-instances/container-instances-gpu
-	data.Locations.Primary = "northeurope"
-	data.Locations.Secondary = "westeurope"
-
-	r := ContainerGroupResource{}
-
-	data.ResourceTest(t, r, []acceptance.TestStep{
-		{
-			Config: r.linuxComplete(data),
-			Check: acceptance.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("dns_name_label_reuse_policy").HasValue("Unsecure"),
-				check.That(data.ResourceName).Key("container.#").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.ports.#").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.commands.#").HasValue("3"),
-				check.That(data.ResourceName).Key("container.0.commands.0").HasValue("/bin/bash"),
-				check.That(data.ResourceName).Key("container.0.commands.1").HasValue("-c"),
-				check.That(data.ResourceName).Key("container.0.commands.2").HasValue("ls"),
-				check.That(data.ResourceName).Key("container.0.environment_variables.%").HasValue("2"),
-				check.That(data.ResourceName).Key("container.0.environment_variables.foo").HasValue("bar"),
-				check.That(data.ResourceName).Key("container.0.environment_variables.foo1").HasValue("bar1"),
-				check.That(data.ResourceName).Key("container.0.secure_environment_variables.%").HasValue("2"),
-				check.That(data.ResourceName).Key("container.0.secure_environment_variables.secureFoo").HasValue("secureBar"),
-				check.That(data.ResourceName).Key("container.0.secure_environment_variables.secureFoo1").HasValue("secureBar1"),
-				check.That(data.ResourceName).Key("container.0.gpu.#").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.gpu.0.count").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.gpu.0.sku").HasValue("K80"),
-				check.That(data.ResourceName).Key("container.0.volume.#").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.volume.0.mount_path").HasValue("/aci/logs"),
-				check.That(data.ResourceName).Key("container.0.volume.0.name").HasValue("logs"),
-				check.That(data.ResourceName).Key("container.0.volume.0.read_only").HasValue("false"),
-				check.That(data.ResourceName).Key("os_type").HasValue("Linux"),
-				check.That(data.ResourceName).Key("restart_policy").HasValue("OnFailure"),
-				check.That(data.ResourceName).Key("diagnostics.0.log_analytics.#").HasValue("1"),
-				check.That(data.ResourceName).Key("diagnostics.0.log_analytics.0.log_type").HasValue("ContainerInsights"),
-				check.That(data.ResourceName).Key("diagnostics.0.log_analytics.0.metadata.%").HasValue("1"),
-				check.That(data.ResourceName).Key("diagnostics.0.log_analytics.0.workspace_id").Exists(),
-				check.That(data.ResourceName).Key("diagnostics.0.log_analytics.0.workspace_key").Exists(),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.#").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.exec.#").HasValue("2"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.exec.0").HasValue("cat"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.exec.1").HasValue("/tmp/healthy"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.http_get.#").HasValue("0"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.initial_delay_seconds").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.period_seconds").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.failure_threshold").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.success_threshold").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.readiness_probe.0.timeout_seconds").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.#").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.failure_threshold").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.#").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.0.path").HasValue("/"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.0.port").HasValue("443"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.0.scheme").HasValue("Http"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.initial_delay_seconds").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.period_seconds").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.success_threshold").HasValue("1"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.timeout_seconds").HasValue("1"),
-			),
-		},
-		data.ImportStep(
-			"container.0.volume.0.storage_account_key",
-			"container.0.secure_environment_variables.%",
-			"container.0.secure_environment_variables.secureFoo",
-			"container.0.secure_environment_variables.secureFoo1",
-			"diagnostics.0.log_analytics.0.workspace_key",
-		),
 	})
 }
 
@@ -557,7 +508,7 @@ func TestAccContainerGroup_windowsComplete(t *testing.T) {
 				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.#").HasValue("1"),
 				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.0.path").HasValue("/"),
 				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.0.port").HasValue("443"),
-				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.0.scheme").HasValue("Http"),
+				check.That(data.ResourceName).Key("container.0.liveness_probe.0.http_get.0.scheme").HasValue("http"),
 				check.That(data.ResourceName).Key("container.0.liveness_probe.0.initial_delay_seconds").HasValue("1"),
 				check.That(data.ResourceName).Key("container.0.liveness_probe.0.period_seconds").HasValue("1"),
 				check.That(data.ResourceName).Key("container.0.liveness_probe.0.success_threshold").HasValue("1"),
@@ -716,14 +667,14 @@ func TestAccContainerGroup_securityContext(t *testing.T) {
 
 	data.ResourceTest(t, r, []acceptance.TestStep{
 		{
-			Config: r.securityContextPriviledged(data, false),
+			Config: r.securityContextPrivileged(data, false),
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 			),
 		},
 		data.ImportStep(),
 		{
-			Config: r.securityContextPriviledged(data, true),
+			Config: r.securityContextPrivileged(data, true),
 			Check: acceptance.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 			),
@@ -754,6 +705,28 @@ func TestAccContainerGroup_priority(t *testing.T) {
 	})
 }
 
+func TestAccContainerGroup_updateWithStorageAccount(t *testing.T) {
+	data := acceptance.BuildTestData(t, "azurerm_container_group", "test")
+	r := ContainerGroupResource{}
+
+	data.ResourceTest(t, r, []acceptance.TestStep{
+		{
+			Config: r.storageAccount(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+			),
+		},
+		data.ImportStep("container.0.volume.0.storage_account_key"),
+		{
+			Config: r.updateWithStorageAccount(data),
+			Check: acceptance.ComposeTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+			),
+		},
+		data.ImportStep("container.0.volume.0.storage_account_key"),
+	})
+}
+
 func (ContainerGroupResource) SystemAssignedIdentity(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
@@ -774,7 +747,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -814,7 +787,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -825,7 +798,7 @@ resource "azurerm_container_group" "test" {
       http_get {
         path   = "/"
         port   = 443
-        scheme = "Http"
+        scheme = "http"
         http_headers = {
           h1 = "v1"
           h2 = "v2"
@@ -865,7 +838,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     liveness_probe {
@@ -908,7 +881,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
   }
@@ -944,7 +917,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
   }
@@ -989,7 +962,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1009,6 +982,7 @@ resource "azurerm_container_group" "test" {
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomString, data.RandomInteger)
 }
+
 func (ContainerGroupResource) UserAssignedIdentityWithVirtualNetwork(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
@@ -1058,7 +1032,7 @@ resource "azurerm_container_group" "test" {
   os_type             = "Linux"
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1108,7 +1082,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1151,7 +1125,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1192,7 +1166,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1232,7 +1206,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1262,7 +1236,7 @@ resource "azurerm_container_group" "import" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1298,7 +1272,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1321,7 +1295,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "sidecar"
-    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
   }
@@ -1353,7 +1327,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
 
@@ -1370,7 +1344,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "sidecar"
-    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
   }
@@ -1409,7 +1383,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1431,7 +1405,7 @@ resource "azurerm_container_group" "test" {
 `, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger)
 }
 
-func (ContainerGroupResource) linuxBasicUpdated(data acceptance.TestData) string {
+func (ContainerGroupResource) linuxBasicMultipleContainers(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
   features {}
@@ -1451,7 +1425,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
 
@@ -1467,59 +1441,9 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "sidecar"
-    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
-  }
-
-  tags = {
-    environment = "Testing"
-  }
-}
-`, data.RandomInteger, data.Locations.Primary, data.RandomInteger)
-}
-
-func (ContainerGroupResource) exposedPortUpdated(data acceptance.TestData) string {
-	return fmt.Sprintf(`
-provider "azurerm" {
-  features {}
-}
-
-resource "azurerm_resource_group" "test" {
-  name     = "acctestRG-%d"
-  location = "%s"
-}
-
-resource "azurerm_container_group" "test" {
-  name                = "acctestcontainergroup-%d"
-  location            = azurerm_resource_group.test.location
-  resource_group_name = azurerm_resource_group.test.name
-  ip_address_type     = "Public"
-  os_type             = "Linux"
-
-  exposed_port {
-    port = 80
-  }
-
-  exposed_port {
-    port     = 5443
-    protocol = "UDP"
-  }
-
-  container {
-    name   = "hw"
-    image  = "ubuntu:20.04"
-    cpu    = "0.5"
-    memory = "0.5"
-
-    ports {
-      port = 80
-    }
-
-    ports {
-      port     = 5443
-      protocol = "UDP"
-    }
   }
 
   tags = {
@@ -1572,7 +1496,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1640,7 +1564,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1694,7 +1618,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -1792,6 +1716,13 @@ resource "azurerm_log_analytics_solution" "test" {
   }
 }
 
+resource "azurerm_user_assigned_identity" "test" {
+  resource_group_name = azurerm_resource_group.test.name
+  location            = azurerm_resource_group.test.location
+
+  name = "acctest%s"
+}
+
 resource "azurerm_container_group" "test" {
   name                = "acctestcontainergroup-%d"
   location            = azurerm_resource_group.test.location
@@ -1800,6 +1731,11 @@ resource "azurerm_container_group" "test" {
   dns_name_label      = "acctestcontainergroup-%d"
   os_type             = "Windows"
   restart_policy      = "Never"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.test.id]
+  }
 
   container {
     name   = "windowsservercore"
@@ -1835,7 +1771,7 @@ resource "azurerm_container_group" "test" {
       http_get {
         path   = "/"
         port   = 443
-        scheme = "Http"
+        scheme = "http"
         http_headers = {
           h1 = "v1"
           h2 = "v2"
@@ -1868,7 +1804,7 @@ resource "azurerm_container_group" "test" {
     environment = "Testing"
   }
 }
-`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger, data.RandomInteger)
+`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomString, data.RandomInteger, data.RandomInteger)
 }
 
 func (ContainerGroupResource) linuxComplete(data acceptance.TestData) string {
@@ -1930,7 +1866,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hf"
-    image  = "seanmckenna/aci-hellofiles"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "1"
     memory = "1.5"
 
@@ -1939,19 +1875,8 @@ resource "azurerm_container_group" "test" {
       protocol = "TCP"
     }
 
-    gpu {
-      count = 1
-      sku   = "K80"
-    }
-
     cpu_limit    = "1"
     memory_limit = "1.5"
-
-    gpu_limit {
-      count = 1
-      sku   = "K80"
-    }
-
 
     volume {
       name       = "logs"
@@ -1985,8 +1910,8 @@ resource "azurerm_container_group" "test" {
     liveness_probe {
       http_get {
         path   = "/"
-        port   = 443
-        scheme = "Http"
+        port   = 80
+        scheme = "http"
         http_headers = {
           h1 = "v1"
           h2 = "v2"
@@ -2043,8 +1968,8 @@ resource "azurerm_container_group" "test" {
   restart_policy      = "OnFailure"
 
   container {
-    name   = "hf"
-    image  = "seanmckenna/aci-hellofiles"
+    name   = "aci-tutorial-app"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld"
     cpu    = "1"
     memory = "1.5"
 
@@ -2071,10 +1996,10 @@ resource "azurerm_container_group" "test" {
     }
 
     readiness_probe {
-      exec                  = ["cat", "/tmp/healthy"]
-      initial_delay_seconds = 1
+      exec                  = ["cat", "/tmp/ready"]
+      initial_delay_seconds = 10
       period_seconds        = 1
-      failure_threshold     = 1
+      failure_threshold     = 3
       success_threshold     = 1
       timeout_seconds       = 1
     }
@@ -2082,18 +2007,18 @@ resource "azurerm_container_group" "test" {
     liveness_probe {
       http_get {
         path   = "/"
-        port   = 443
-        scheme = "Http"
+        port   = 80
+        scheme = "http"
       }
 
-      initial_delay_seconds = 1
+      initial_delay_seconds = 10
       period_seconds        = 1
-      failure_threshold     = 1
+      failure_threshold     = 3
       success_threshold     = 1
       timeout_seconds       = 1
     }
 
-    commands = ["/bin/bash", "-c", "ls"]
+    commands = ["/bin/sh", "-c", "node /usr/src/app/index.js & (sleep 5; touch /tmp/ready); wait"]
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger)
@@ -2120,8 +2045,8 @@ resource "azurerm_container_group" "test" {
   restart_policy      = "OnFailure"
 
   container {
-    name   = "hf"
-    image  = "seanmckenna/aci-hellofiles"
+    name   = "aci-tutorial-app"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld"
     cpu    = "1"
     memory = "1.5"
 
@@ -2143,8 +2068,8 @@ resource "azurerm_container_group" "test" {
     }
 
     readiness_probe {
-      exec                  = ["cat", "/tmp/healthy"]
-      initial_delay_seconds = 1
+      exec                  = ["cat", "/tmp/ready"]
+      initial_delay_seconds = 10
       period_seconds        = 1
       failure_threshold     = 1
       success_threshold     = 1
@@ -2154,18 +2079,18 @@ resource "azurerm_container_group" "test" {
     liveness_probe {
       http_get {
         path   = "/"
-        port   = 443
-        scheme = "Http"
+        port   = 80
+        scheme = "http"
       }
 
-      initial_delay_seconds = 1
+      initial_delay_seconds = 10
       period_seconds        = 1
       failure_threshold     = 1
       success_threshold     = 1
       timeout_seconds       = 1
     }
 
-    commands = ["/bin/bash", "-c", "ls"]
+    commands = ["/bin/sh", "-c", "node /usr/src/app/index.js & (sleep 5; touch /tmp/ready); wait"]
   }
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger)
@@ -2192,7 +2117,7 @@ resource "azurerm_container_group" "test" {
 
   init_container {
     name     = "init"
-    image    = "busybox"
+    image    = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     commands = ["touch", "/sharedempty/file.txt"]
 
     volume {
@@ -2205,7 +2130,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "reader"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "1"
     memory = "1.5"
 
@@ -2243,7 +2168,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name     = "writer"
-    image    = "ubuntu:20.04"
+    image    = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu      = "1"
     memory   = "1.5"
     commands = ["touch", "/sharedempty/file.txt"]
@@ -2258,7 +2183,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "reader"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "1"
     memory = "1.5"
 
@@ -2296,7 +2221,7 @@ resource "azurerm_container_group" "test" {
 
   init_container {
     name     = "init"
-    image    = "busybox"
+    image    = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     commands = ["echo", "hello from init"]
     secure_environment_variables = {
       PASSWORD = "something_very_secure_for_init"
@@ -2305,7 +2230,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "1"
     memory = "1.5"
 
@@ -2338,7 +2263,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -2403,7 +2328,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hello-world"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "1.5"
 
@@ -2512,7 +2437,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -2613,7 +2538,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -2632,7 +2557,7 @@ resource "azurerm_container_group" "test" {
 `, data.RandomInteger, data.Locations.Primary, data.RandomInteger)
 }
 
-func (ContainerGroupResource) securityContextPriviledged(data acceptance.TestData, v bool) string {
+func (ContainerGroupResource) securityContextPrivileged(data acceptance.TestData, v bool) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
   features {}
@@ -2653,7 +2578,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -2688,7 +2613,7 @@ resource "azurerm_container_group" "test" {
 
   container {
     name   = "hw"
-    image  = "ubuntu:20.04"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     cpu    = "0.5"
     memory = "0.5"
     ports {
@@ -2700,4 +2625,225 @@ resource "azurerm_container_group" "test" {
   priority = "%s"
 }
 `, data.RandomInteger, data.Locations.Primary, data.RandomInteger, priority)
+}
+
+func (ContainerGroupResource) storageAccount(data acceptance.TestData) string {
+	return fmt.Sprintf(`
+provider "azurerm" {
+  features {}
+}
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-cg-%d"
+  location = "%s"
+}
+resource "azurerm_storage_account" "test" {
+  name                     = "accsa%d"
+  resource_group_name      = azurerm_resource_group.test.name
+  location                 = azurerm_resource_group.test.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+resource "azurerm_storage_share" "test" {
+  name                 = "acctestss-%d"
+  storage_account_name = azurerm_storage_account.test.name
+  quota                = 1
+}
+resource "azurerm_container_group" "test" {
+  name                = "acctestcontainergroup-%d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  ip_address_type     = "Public"
+  os_type             = "Linux"
+  container {
+    name   = "hw"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    cpu    = "1"
+    memory = "1"
+    ports {
+      port     = 443
+      protocol = "TCP"
+    }
+    volume {
+      name                 = "testvolume"
+      mount_path           = "/test"
+      share_name           = azurerm_storage_share.test.name
+      storage_account_name = azurerm_storage_account.test.name
+      storage_account_key  = azurerm_storage_account.test.primary_access_key
+    }
+  }
+  tags = {
+    environment = "Test1"
+  }
+}
+`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger, data.RandomInteger)
+}
+
+func (ContainerGroupResource) updateWithStorageAccount(data acceptance.TestData) string {
+	return fmt.Sprintf(`
+provider "azurerm" {
+  features {}
+}
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-cg-%d"
+  location = "%s"
+}
+resource "azurerm_storage_account" "test" {
+  name                     = "accsa%d"
+  resource_group_name      = azurerm_resource_group.test.name
+  location                 = azurerm_resource_group.test.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+resource "azurerm_storage_share" "test" {
+  name                 = "acctestss-%d"
+  storage_account_name = azurerm_storage_account.test.name
+  quota                = 1
+}
+resource "azurerm_container_group" "test" {
+  name                = "acctestcontainergroup-%d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  ip_address_type     = "Public"
+  os_type             = "Linux"
+  container {
+    name   = "hw"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    cpu    = "1"
+    memory = "1"
+    ports {
+      port     = 443
+      protocol = "TCP"
+    }
+    volume {
+      name                 = "testvolume"
+      mount_path           = "/test"
+      share_name           = azurerm_storage_share.test.name
+      storage_account_name = azurerm_storage_account.test.name
+      storage_account_key  = azurerm_storage_account.test.primary_access_key
+    }
+  }
+  identity {
+    type = "SystemAssigned"
+  }
+  tags = {
+    environment = "Test2"
+  }
+}
+`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger, data.RandomInteger)
+}
+
+func (ContainerGroupResource) SystemAssignedIdentityWithLogWorkspace(data acceptance.TestData) string {
+	return fmt.Sprintf(`
+provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_log_analytics_workspace" "test" {
+  name                = "acctestLAW-%d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  sku                 = "PerGB2018"
+}
+
+resource "azurerm_container_group" "test" {
+  name                = "acctestcontainergroup-%d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  ip_address_type     = "Public"
+  os_type             = "Linux"
+
+  container {
+    name   = "hw"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    cpu    = "0.5"
+    memory = "0.5"
+    ports {
+      port     = 80
+      protocol = "TCP"
+    }
+  }
+
+  diagnostics {
+    log_analytics {
+      workspace_id  = azurerm_log_analytics_workspace.test.workspace_id
+      workspace_key = azurerm_log_analytics_workspace.test.primary_shared_key
+    }
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = {
+    environment = "Testing"
+  }
+}
+`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger)
+}
+
+func (ContainerGroupResource) UserAssignedIdentityWithLogWorkspace(data acceptance.TestData) string {
+	return fmt.Sprintf(`
+provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_log_analytics_workspace" "test" {
+  name                = "acctestLAW-%d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  sku                 = "PerGB2018"
+}
+
+resource "azurerm_user_assigned_identity" "test" {
+  resource_group_name = azurerm_resource_group.test.name
+  location            = azurerm_resource_group.test.location
+
+  name = "acctest%s"
+}
+
+resource "azurerm_container_group" "test" {
+  name                = "acctestcontainergroup-%d"
+  location            = azurerm_resource_group.test.location
+  resource_group_name = azurerm_resource_group.test.name
+  ip_address_type     = "Public"
+  os_type             = "Linux"
+
+  container {
+    name   = "hw"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    cpu    = "0.5"
+    memory = "0.5"
+    ports {
+      port     = 80
+      protocol = "TCP"
+    }
+  }
+
+  diagnostics {
+    log_analytics {
+      workspace_id  = azurerm_log_analytics_workspace.test.workspace_id
+      workspace_key = azurerm_log_analytics_workspace.test.primary_shared_key
+    }
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.test.id]
+  }
+
+  tags = {
+    environment = "Testing"
+  }
+}
+`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomString, data.RandomInteger)
 }

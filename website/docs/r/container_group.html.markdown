@@ -10,8 +10,6 @@ description: |-
 
 Manages as an Azure Container Group instance.
 
-~> **Note** `network_profile_id` is [deprecated](https://docs.microsoft.com/en-us/azure/container-instances/container-instances-vnet) by Azure. For users who want to continue to manage existing `azurerm_container_group` that rely on `network_profile_id`, please stay on provider versions prior to v3.16.0. Otherwise, use `subnet_ids` instead.
-
 ## Example Usage
 
 This example provisions a Basic Container. Other examples of the `azurerm_container_group` resource can be found in [the `./examples/container-instance` directory within the GitHub Repository](https://github.com/hashicorp/terraform-provider-azurerm/tree/main/examples/container-instance).
@@ -87,7 +85,7 @@ The following arguments are supported:
 
 ~> **Note:** DNS label/name is not supported when deploying to virtual networks.
 
-* `dns_name_label_reuse_policy` - (Optional) The value representing the security enum. `Noreuse`, `ResourceGroupReuse`, `SubscriptionReuse`, `TenantReuse` or `Unsecure`. Defaults to `Unsecure`. 
+* `dns_name_label_reuse_policy` - (Optional) The value representing the security enum. `Noreuse`, `ResourceGroupReuse`, `SubscriptionReuse`, `TenantReuse` or `Unsecure`. Defaults to `Unsecure`. Changing this forces a new resource to be created.
 
 * `exposed_port` - (Optional) Zero or more `exposed_port` blocks as defined below. Changing this forces a new resource to be created.
 
@@ -159,15 +157,9 @@ A `container` block supports:
 
 * `memory` - (Required) The required memory of the containers in GB. Changing this forces a new resource to be created.
 
-* `gpu` - (Optional) A `gpu` block as defined below. Changing this forces a new resource to be created.
-
-~> **Note:** Gpu resources are currently only supported in Linux containers.
-
 * `cpu_limit` - (Optional) The upper limit of the number of CPU cores of the containers.
 
 * `memory_limit` - (Optional) The upper limit of the memory of the containers in GB.
-
-* `gpu_limit` - (Optional) A `gpu_limit` block as defined below.
 
 * `ports` - (Optional) A set of public ports for the container. Changing this forces a new resource to be created. Set as documented in the `ports` block below.
 
@@ -234,22 +226,6 @@ A `ports` block supports:
 * `protocol` - (Optional) The network protocol associated with port. Possible values are `TCP` & `UDP`. Changing this forces a new resource to be created. Defaults to `TCP`.
 
 ~> **Note:** Omitting these blocks will default the exposed ports on the group to all ports on all containers defined in the `container` blocks of this group.
-
----
-
-A `gpu` block supports:
-
-* `count` - (Optional) The number of GPUs which should be assigned to this container. Allowed values are `1`, `2`, or `4`. Changing this forces a new resource to be created.
-
-* `sku` - (Optional) The SKU which should be used for the GPU. Possible values are `K80`, `P100`, or `V100`. Changing this forces a new resource to be created.
-
----
-
-A `gpu_limit` block supports:
-
-* `count` - (Optional) The upper limit of the number of GPUs which should be assigned to this container.
-
-* `sku` - (Optional) The allowed SKU which should be used for the GPU. Possible values are `K80`, `P100`, or `V100`.
 
 ---
 
@@ -379,7 +355,7 @@ An `identity` block exports the following:
 
 The `timeouts` block allows you to specify [timeouts](https://www.terraform.io/language/resources/syntax#operation-timeouts) for certain actions:
 
-* `create` - (Defaults to 30 minutes) Used when creating the Container Group.
+* `create` - (Defaults to 60 minutes) Used when creating the Container Group.
 
 * `update` - (Defaults to 30 minutes) Used when updating the Container Group.
 

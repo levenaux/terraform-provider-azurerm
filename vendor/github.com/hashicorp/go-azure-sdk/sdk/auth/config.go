@@ -21,6 +21,9 @@ type Credentials struct {
 
 	// EnableAuthenticatingUsingAzureCLI specifies whether Azure CLI authentication should be checked.
 	EnableAuthenticatingUsingAzureCLI bool
+	// AzureCliSubscriptionIDHint is the subscription to target when selecting an account with which to obtain an access token
+	// Used to hint to Azure CLI which of its signed-in accounts it should select, based on apparent access to the subscription.
+	AzureCliSubscriptionIDHint string
 
 	// EnableAuthenticatingUsingClientCertificate specifies whether Client Certificate authentication should be checked.
 	EnableAuthenticatingUsingClientCertificate bool
@@ -46,10 +49,16 @@ type Credentials struct {
 	// OIDCAssertionToken specifies the OIDC Assertion Token to authenticate using Client Credentials.
 	OIDCAssertionToken string
 
-	// EnableAuthenticationUsingGitHubOIDC specifies whether GitHub OIDC
+	// EnableAuthenticationUsingGitHubOIDC specifies whether GitHub OIDC should be checked.
 	EnableAuthenticationUsingGitHubOIDC bool
-	// GitHubOIDCTokenRequestURL specifies the URL for GitHub's OIDC provider
-	GitHubOIDCTokenRequestURL string
-	// GitHubOIDCTokenRequestToken specifies the bearer token for the request to GitHub's OIDC provider
-	GitHubOIDCTokenRequestToken string
+
+	// EnableAuthenticationUsingADOPipelineOIDC specifies whether ADO Pipeline OIDC should be checked.
+	EnableAuthenticationUsingADOPipelineOIDC bool
+
+	// OIDCTokenRequestURL specifies the URL for the OIDC provider
+	OIDCTokenRequestURL string
+	// OIDCTokenRequestToken specifies the bearer token for the request to the OIDC provider
+	OIDCTokenRequestToken string
+	// ADOPipelineServiceConnectionID specifies the ADO Service Connection ID to authenticate.
+	ADOPipelineServiceConnectionID string
 }

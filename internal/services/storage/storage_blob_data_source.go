@@ -14,8 +14,8 @@ import (
 	"github.com/hashicorp/terraform-provider-azurerm/internal/services/storage/client"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/timeouts"
-	"github.com/tombuildsstuff/giovanni/storage/2023-11-03/blob/accounts"
-	"github.com/tombuildsstuff/giovanni/storage/2023-11-03/blob/blobs"
+	"github.com/jackofallops/giovanni/storage/2023-11-03/blob/accounts"
+	"github.com/jackofallops/giovanni/storage/2023-11-03/blob/blobs"
 )
 
 func dataSourceStorageBlob() *pluginsdk.Resource {
@@ -59,6 +59,11 @@ func dataSourceStorageBlob() *pluginsdk.Resource {
 			},
 
 			"content_md5": {
+				Type:     pluginsdk.TypeString,
+				Computed: true,
+			},
+
+			"encryption_scope": {
 				Type:     pluginsdk.TypeString,
 				Computed: true,
 			},
@@ -135,6 +140,8 @@ func dataSourceStorageBlobRead(d *pluginsdk.ResourceData, meta interface{}) erro
 		}
 	}
 	d.Set("content_md5", contentMD5)
+
+	d.Set("encryption_scope", props.EncryptionScope)
 
 	d.Set("type", strings.TrimSuffix(string(props.BlobType), "Blob"))
 
